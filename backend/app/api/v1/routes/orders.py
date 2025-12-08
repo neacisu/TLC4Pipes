@@ -3,6 +3,7 @@ Orders API Routes
 CRUD operations for loading orders
 """
 
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,8 @@ from app.services.order_service import (
 )
 from app.utils.csv_parser import parse_csv_bytes, validate_parsed_items
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -36,6 +39,7 @@ async def list_all_orders(
     Status values: draft, processing, calculated, completed
     """
     orders = await list_orders(db, skip, limit, status)
+    logger.debug("orders.list", extra={"skip": skip, "limit": limit, "status": status})
     return {"orders": orders, "count": len(orders)}
 
 
@@ -78,6 +82,11 @@ async def create_new_order(
     # Refresh order to get updated totals
     final_order = await get_order_with_items(db, new_order.id)
     
+    logger.info(
+        "orders.create",
+        extra={"order_id": final_order["id"] if final_order else None, "errors": len(errors)},
+    )
+
     return {
         "order": final_order,
         "errors": errors if errors else None
@@ -96,8 +105,10 @@ async def add_item_to_order(
     result, error = await add_order_item(db, order_id, item.pipe_id, item.quantity)
     
     if error:
+        logger.warning("orders.add_item.failed", extra={"order_id": order_id, "pipe_id": item.pipe_id, "error": error})
         raise HTTPException(status_code=400, detail=error)
     
+    logger.info("orders.add_item.success", extra={"order_id": order_id, "pipe_id": item.pipe_id})
     return {
         "message": "Item added successfully",
         "item": {
@@ -132,6 +143,7 @@ async def update_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    logger.info("orders.status.updated", extra={"order_id": order_id, "status": status})
     return {"message": f"Status updated to {status}", "order_id": order_id}
 
 
@@ -148,6 +160,7 @@ async def delete_existing_order(
     if not deleted:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    logger.info("orders.deleted", extra={"order_id": order_id})
     return {"message": "Order deleted successfully", "order_id": order_id}
 
 
@@ -179,6 +192,7 @@ async def import_order_from_csv(
     parse_result = parse_csv_bytes(content)
     
     if parse_result.errors and not parse_result.items:
+        logger.warning("orders.import.parse_failed", extra={"errors": parse_result.errors})
         raise HTTPException(
             status_code=400,
             detail={
@@ -191,6 +205,10 @@ async def import_order_from_csv(
     valid_items, validation_errors = validate_parsed_items(parse_result.items)
     
     if not valid_items:
+        logger.warning(
+            "orders.import.validation_failed",
+            extra={"parse_errors": len(parse_result.errors), "validation_errors": len(validation_errors)},
+        )
         raise HTTPException(
             status_code=400,
             detail={
@@ -219,6 +237,16 @@ async def import_order_from_csv(
     final_order = await get_order_with_items(db, order.id)
     
     all_errors = parse_result.errors + validation_errors + create_errors
+    logger.info(
+        "orders.import_csv.completed",
+        extra={
+            "order_id": order.id,
+            "rows": parse_result.total_rows,
+            "valid": parse_result.valid_rows,
+            "warnings": len(parse_result.warnings),
+            "errors": len(all_errors),
+        },
+    )
     
     return {
         "order": final_order,

@@ -3,6 +3,7 @@ Trucks API Routes
 Truck configuration endpoints
 """
 
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -11,6 +12,9 @@ from pydantic import BaseModel
 
 from database.connection import get_db
 from app.models.truck_config import TruckConfig
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +38,7 @@ async def list_trucks(db: AsyncSession = Depends(get_db)):
     query = select(TruckConfig)
     result = await db.execute(query)
     trucks = result.scalars().all()
+    logger.debug("trucks.list", extra={"count": len(trucks)})
     
     return [
         TruckResponse(
@@ -57,8 +62,10 @@ async def get_truck(truck_id: int, db: AsyncSession = Depends(get_db)):
     truck = result.scalar_one_or_none()
     
     if not truck:
+        logger.warning("trucks.get.not_found", extra={"truck_id": truck_id})
         raise HTTPException(status_code=404, detail="Truck configuration not found")
     
+    logger.info("trucks.get", extra={"truck_id": truck_id})
     return TruckResponse(
         id=truck.id,
         name=truck.name,

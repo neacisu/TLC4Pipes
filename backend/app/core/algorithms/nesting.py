@@ -10,6 +10,7 @@ Strategy:
 4. Prioritize lighter pipes inside heavier (to protect outer pipe)
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Optional
 from app.core.calculators.gap_clearance import (
@@ -20,6 +21,9 @@ from app.core.calculators.weight_calculator import (
     calculate_bundle_weight,
     HEAVY_EXTRACTION_THRESHOLD_KG
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 # Maximum nesting levels (from specification section 3.3)
@@ -237,13 +241,25 @@ def create_nested_bundles(
     # Real calculation would use circle packing
     reduction_ratio = nested_count / total_pipes if total_pipes > 0 else 0
     
-    return NestingResult(
+    result = NestingResult(
         bundles=bundles,
         unpacked_pipes=[],  # All pipes are in bundles (possibly alone)
         total_pipes_processed=total_pipes,
         pipes_nested=nested_count,
         reduction_ratio=reduction_ratio
     )
+
+    logger.debug(
+        "nesting.summary",
+        extra={
+            "bundles": len(bundles),
+            "pipes_processed": total_pipes,
+            "pipes_nested": nested_count,
+            "reduction_ratio": round(reduction_ratio, 3),
+        },
+    )
+
+    return result
 
 
 def bundle_to_dict(bundle: NestedPipe, pipe_length_m: float = 12.0) -> dict:

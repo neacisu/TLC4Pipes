@@ -8,6 +8,7 @@ Main entry point for loading optimization:
 4. Calculate metrics and generate plan
 """
 
+import logging
 from typing import Optional
 from dataclasses import dataclass
 
@@ -25,6 +26,9 @@ from app.core.calculators.weight_calculator import (
     calculate_order_total_weight,
     check_weight_limits
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -65,6 +69,15 @@ def calculate_loading_plan(
         LoadingPlanResult with complete plan
     """
     warnings = []
+    logger.info(
+        "loading.calculate.start",
+        extra={
+            "items": len(order_items),
+            "pipe_length_m": pipe_length_m,
+            "enable_nesting": enable_nesting,
+            "max_nesting_levels": max_nesting_levels,
+        },
+    )
     
     # Expand order items to individual pipes
     pipes = []
@@ -111,6 +124,10 @@ def calculate_loading_plan(
         warnings.append(
             f"Order exceeds single truck capacity by {weight_limits['overweight_kg']:.0f}kg"
         )
+        logger.warning(
+            "loading.weight.overlimit",
+            extra={"total_weight_kg": round(total_weight, 2), "overweight_kg": round(weight_limits['overweight_kg'], 2)},
+        )
     
     # Calculate nesting stats
     nested_count = sum(
@@ -130,7 +147,7 @@ def calculate_loading_plan(
         ) if enable_nesting else 0
     }
     
-    return LoadingPlanResult(
+    result = LoadingPlanResult(
         order_id=order_id or 0,
         pipe_length_m=pipe_length_m,
         total_pipes=total_pipes,
@@ -141,6 +158,17 @@ def calculate_loading_plan(
         weight_limits=weight_limits,
         warnings=warnings
     )
+
+    logger.info(
+        "loading.calculate.done",
+        extra={
+            "trucks": len(trucks),
+            "total_weight_kg": result.total_weight_kg,
+            "warnings": len(warnings),
+        },
+    )
+
+    return result
 
 
 def loading_plan_to_dict(result: LoadingPlanResult) -> dict:
@@ -184,6 +212,7 @@ async def calculate_loading_plan_from_db(
     order = (await db_session.execute(order_query)).scalar_one_or_none()
     
     if not order:
+        logger.error("loading.order_missing", extra={"order_id": order_id})
         raise ValueError(f"Order {order_id} not found")
     
     # Load order items with pipe data

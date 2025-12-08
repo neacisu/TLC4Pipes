@@ -4,6 +4,7 @@ Settings API Routes
 CRUD endpoints for managing application settings.
 """
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,9 @@ from app.services.settings_service import (
     update_setting,
 )
 
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -32,6 +36,7 @@ async def get_settings_overview(db: AsyncSession = Depends(get_db)):
     Returns default active setting from each category.
     """
     settings = await get_all_settings(db)
+    logger.debug("settings.overview", extra={"count": len(settings) if settings else 0})
     return {"settings": settings}
 
 
@@ -50,6 +55,7 @@ async def get_material(
     """Get specific material properties."""
     material = await get_material_properties(db, material_type)
     if not material:
+        logger.warning("settings.material.not_found", extra={"material_type": material_type})
         raise HTTPException(status_code=404, detail="Material not found")
     return material
 
@@ -69,6 +75,7 @@ async def get_transport(
     """Get transport limits for a specific region."""
     limits = await get_transport_limits(db, region_code)
     if not limits:
+        logger.warning("settings.transport.not_found", extra={"region_code": region_code})
         raise HTTPException(status_code=404, detail="Region not found")
     return limits
 
@@ -88,6 +95,7 @@ async def get_nesting(
     """Get specific nesting settings profile."""
     settings = await get_nesting_settings(db, name)
     if not settings:
+        logger.warning("settings.nesting.not_found", extra={"name": name})
         raise HTTPException(status_code=404, detail="Nesting profile not found")
     return settings
 
@@ -107,6 +115,7 @@ async def get_truck(
     """Get specific truck dimensions."""
     truck = await get_truck_dimensions(db, name)
     if not truck:
+        logger.warning("settings.truck.not_found", extra={"name": name})
         raise HTTPException(status_code=404, detail="Truck template not found")
     return truck
 
@@ -126,6 +135,7 @@ async def get_safety(
     """Get specific safety settings profile."""
     settings = await get_safety_settings(db, name)
     if not settings:
+        logger.warning("settings.safety.not_found", extra={"name": name})
         raise HTTPException(status_code=404, detail="Safety profile not found")
     return settings
 
@@ -145,6 +155,7 @@ async def get_packing(
     """Get specific packing configuration."""
     config = await get_packing_config(db, name)
     if not config:
+        logger.warning("settings.packing.not_found", extra={"name": name})
         raise HTTPException(status_code=404, detail="Packing config not found")
     return config
 
@@ -163,6 +174,7 @@ async def update_setting_endpoint(
     """
     valid_categories = ["material", "transport", "nesting", "truck", "safety", "packing"]
     if category not in valid_categories:
+        logger.warning("settings.update.invalid_category", extra={"category": category})
         raise HTTPException(
             status_code=400,
             detail=f"Invalid category. Must be one of: {valid_categories}"
@@ -170,6 +182,8 @@ async def update_setting_endpoint(
     
     result = await update_setting(db, category, setting_id, data)
     if not result:
+        logger.warning("settings.update.not_found", extra={"category": category, "setting_id": setting_id})
         raise HTTPException(status_code=404, detail="Setting not found")
     
+    logger.info("settings.update.success", extra={"category": category, "setting_id": setting_id})
     return {"message": "Setting updated", "setting": result}

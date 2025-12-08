@@ -7,7 +7,6 @@ services:
   # ============================================
   db:
     image: postgres:17-alpine
-    container_name: tlc4pipe-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-tlc4pipe}
@@ -16,15 +15,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tlc4pipe} -d ${POSTGRES_DB:-tlc4pipe}" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - tlc4pipe-network
+      - tlc4pipes_net
 
   # ============================================
   # FastAPI Backend
@@ -34,15 +31,12 @@ services:
       context: ../backend
       dockerfile: ../docker/Dockerfile.backend
       target: production
-    container_name: tlc4pipe-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tlc4pipe}:${POSTGRES_PASSWORD:-tlc4pipe_secret}@db:5432/${POSTGRES_DB:-tlc4pipe}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:80}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:8811}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-false}
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -52,7 +46,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - tlc4pipe-network
+      - tlc4pipes_net
 
   # ============================================
   # React Frontend (nginx)
@@ -62,24 +56,23 @@ services:
       context: ../frontend
       dockerfile: ../docker/Dockerfile.frontend
       target: production
-    container_name: tlc4pipe-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8811:80"
     depends_on:
       - backend
     healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/" ]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/" ]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - tlc4pipe-network
+      - tlc4pipes_net
 
 volumes:
   postgres_data:
 
 
 networks:
-  tlc4pipe-network:
+  tlc4pipes_net:
     driver: bridge

@@ -3,6 +3,7 @@ Calculations API Routes
 Core loading optimization endpoints
 """
 
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel, Field
@@ -17,6 +18,9 @@ from app.services.loading_service import (
     calculate_loading_plan,
     loading_plan_to_dict
 )
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -75,6 +79,7 @@ async def optimize_loading(
     for item in request.items:
         pipe = pipes_db.get(item.pipe_id)
         if not pipe:
+            logger.warning("calc.optimize.pipe_missing", extra={"pipe_id": item.pipe_id})
             raise HTTPException(404, f"Pipe ID {item.pipe_id} not found")
         
         order_items.append({
@@ -118,6 +123,10 @@ async def optimize_loading(
     )
     
     result = loading_plan_to_dict(plan)
+    logger.info(
+        "calc.optimize.done",
+        extra={"trucks": len(result.get("trucks", [])), "warnings": len(result.get("warnings", []))},
+    )
     
     return OptimizeResponse(
         summary=result["summary"],
@@ -151,8 +160,10 @@ async def validate_nesting(
     inner = pipes.get(inner_pipe_id)
     
     if not outer:
+        logger.warning("calc.nesting.pipe_missing", extra={"pipe_id": outer_pipe_id, "role": "outer"})
         raise HTTPException(404, f"Outer pipe ID {outer_pipe_id} not found")
     if not inner:
+        logger.warning("calc.nesting.pipe_missing", extra={"pipe_id": inner_pipe_id, "role": "inner"})
         raise HTTPException(404, f"Inner pipe ID {inner_pipe_id} not found")
     
     # Validate nesting

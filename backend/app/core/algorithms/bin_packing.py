@@ -9,9 +9,13 @@ Strategy:
 3. Open new truck if no space/weight available
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Optional
 from app.core.algorithms.nesting import NestedPipe
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -129,17 +133,29 @@ def first_fit_decreasing(
             )
             new_truck.add_bundle(bundle)
             trucks.append(new_truck)
+            logger.debug("packing.new_truck", extra={"truck_number": new_truck.truck_number})
     
     # Calculate statistics
     total_weight = sum(t.total_weight_kg for t in trucks)
     avg_util = sum(t.weight_utilization_pct for t in trucks) / len(trucks) if trucks else 0
     
-    return PackingResult(
+    result = PackingResult(
         trucks=trucks,
         total_trucks_needed=len(trucks),
         total_weight_kg=total_weight,
         average_utilization_pct=avg_util
     )
+
+    logger.debug(
+        "packing.summary",
+        extra={
+            "trucks": len(trucks),
+            "total_weight_kg": round(total_weight, 2),
+            "avg_util_pct": round(avg_util, 2),
+        },
+    )
+
+    return result
 
 
 def pack_pipes_into_trucks(

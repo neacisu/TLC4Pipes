@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Application
     VERSION: str = "1.0.0"
     DEBUG: bool = False
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: str | None = None
+    SQL_ECHO: bool = False
+    SLOW_QUERY_MS: int = 500
     SECRET_KEY: str = "change-me-in-production"
     
     # Database
@@ -39,6 +43,16 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins from comma-separated string."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+
+    @property
+    def effective_log_level(self) -> str:
+        """Return log level derived from env: DEBUG overrides explicit level."""
+        return "DEBUG" if self.DEBUG else self.LOG_LEVEL.upper()
+
+    @property
+    def sql_echo_enabled(self) -> bool:
+        """Enable SQL echo when explicit or when app runs in DEBUG."""
+        return bool(self.SQL_ECHO or self.DEBUG)
 
 
 # Global settings instance

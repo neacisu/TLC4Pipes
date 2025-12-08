@@ -4,6 +4,7 @@ Order Service
 Business logic for order management.
 """
 
+import logging
 from typing import List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,9 @@ from sqlalchemy.orm import selectinload
 
 from app.models.order import Order, OrderItem
 from app.models.pipe_catalog import PipeCatalog
+
+
+logger = logging.getLogger(__name__)
 
 
 async def create_order(
@@ -42,6 +46,8 @@ async def create_order(
     session.add(order)
     await session.commit()
     await session.refresh(order)
+
+    logger.info("order.created", extra={"order_id": order.id, "order_number": order.order_number})
     
     return order
 
@@ -69,6 +75,7 @@ async def add_order_item(
     order = (await session.execute(order_query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("order.add_item.order_missing", extra={"order_id": order_id})
         return None, f"Order {order_id} not found"
     
     # Verify pipe exists
@@ -76,6 +83,7 @@ async def add_order_item(
     pipe = (await session.execute(pipe_query)).scalar_one_or_none()
     
     if not pipe:
+        logger.warning("order.add_item.pipe_missing", extra={"order_id": order_id, "pipe_id": pipe_id})
         return None, f"Pipe {pipe_id} not found in catalog"
     
     # Calculate line weight
@@ -94,6 +102,16 @@ async def add_order_item(
     
     # Update order totals
     await update_order_totals(session, order_id)
+
+    logger.info(
+        "order.add_item.success",
+        extra={
+            "order_id": order_id,
+            "pipe_id": pipe_id,
+            "quantity": quantity,
+            "line_weight_kg": round(line_weight, 2),
+        },
+    )
     
     return item, None
 
@@ -115,6 +133,7 @@ async def update_order_totals(session: AsyncSession, order_id: int) -> None:
     order = (await session.execute(query)).scalar_one_or_none()
     
     if not order:
+        logger.debug("order.totals.order_missing", extra={"order_id": order_id})
         return
     
     # Calculate totals
@@ -125,6 +144,10 @@ async def update_order_totals(session: AsyncSession, order_id: int) -> None:
     order.total_weight_kg = total_weight
     
     await session.commit()
+    logger.debug(
+        "order.totals.updated",
+        extra={"order_id": order_id, "total_pipes": total_pipes, "total_weight_kg": round(total_weight, 2)},
+    )
 
 
 async def get_order_with_items(
@@ -149,6 +172,7 @@ async def get_order_with_items(
     order = (await session.execute(query)).scalar_one_or_none()
     
     if not order:
+        logger.debug("order.get.not_found", extra={"order_id": order_id})
         return None
     
     return {
@@ -230,10 +254,12 @@ async def delete_order(session: AsyncSession, order_id: int) -> bool:
     order = (await session.execute(query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("order.delete.not_found", extra={"order_id": order_id})
         return False
     
     await session.delete(order)
     await session.commit()
+    logger.info("order.deleted", extra={"order_id": order_id})
     return True
 
 
@@ -257,16 +283,19 @@ async def update_order_status(
     """
     valid_statuses = ["draft", "processing", "calculated", "completed"]
     if status not in valid_statuses:
+        logger.warning("order.status.invalid", extra={"order_id": order_id, "status": status})
         return None
     
     query = select(Order).where(Order.id == order_id)
     order = (await session.execute(query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("order.status.not_found", extra={"order_id": order_id})
         return None
     
     order.status = status
     await session.commit()
+    logger.info("order.status.updated", extra={"order_id": order_id, "status": status})
     return order
 
 
@@ -305,11 +334,14 @@ async def create_order_from_csv(
         pipe = (await session.execute(pipe_query)).scalar_one_or_none()
         
         if not pipe:
-            errors.append(f"Pipe DN{dn} {pn} not found in catalog")
+            msg = f"Pipe DN{dn} {pn} not found in catalog"
+            errors.append(msg)
+            logger.warning("order.csv.pipe_missing", extra={"order_id": order.id, "dn": dn, "pn": pn})
             continue
         
         _, error = await add_order_item(session, order.id, pipe.id, qty)
         if error:
             errors.append(error)
+            logger.warning("order.csv.add_item_failed", extra={"order_id": order.id, "pipe_id": pipe.id, "error": error})
     
     return order, errors

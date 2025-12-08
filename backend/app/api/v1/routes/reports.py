@@ -3,6 +3,7 @@ Reports API Routes
 PDF report generation and loading summaries
 """
 
+import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,6 +25,9 @@ from app.services.loading_service import (
     calculate_loading_plan,
     loading_plan_to_dict
 )
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -54,6 +58,7 @@ async def generate_report_for_order(
     order = (await db.execute(order_query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("reports.generate.order_missing", extra={"order_id": order_id})
         raise HTTPException(status_code=404, detail="Order not found")
     
     # Use order's pipe length if not overridden
@@ -76,6 +81,7 @@ async def generate_report_for_order(
             })
     
     if not order_items:
+        logger.warning("reports.generate.no_items", extra={"order_id": order_id})
         raise HTTPException(status_code=400, detail="Order has no valid items")
     
     # Load truck config
@@ -105,6 +111,8 @@ async def generate_report_for_order(
     
     result = loading_plan_to_dict(plan)
     summary = generate_summary_data(result)
+
+    logger.info("reports.generate.success", extra={"order_id": order_id, "trucks": len(result.get("trucks", []))})
     
     return {
         "order_id": order_id,
@@ -145,6 +153,7 @@ async def generate_pdf_report(
     order = (await db.execute(order_query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("reports.pdf.order_missing", extra={"order_id": order_id})
         raise HTTPException(status_code=404, detail="Order not found")
     
     length = float(order.pipe_length_m)
@@ -166,6 +175,7 @@ async def generate_pdf_report(
             })
     
     if not order_items:
+        logger.warning("reports.pdf.no_items", extra={"order_id": order_id})
         raise HTTPException(status_code=400, detail="Order has no valid items")
     
     # Load truck config
@@ -208,6 +218,8 @@ async def generate_pdf_report(
     
     # Generate PDF
     pdf_bytes = generate_loading_report_pdf(report_data)
+
+    logger.info("reports.pdf.generated", extra={"order_id": order_id})
     
     # Return as downloadable file
     filename = f"loading_plan_{order.order_number}.pdf"
@@ -242,6 +254,7 @@ async def get_loading_summary(
     order = (await db.execute(order_query)).scalar_one_or_none()
     
     if not order:
+        logger.warning("reports.summary.order_missing", extra={"order_id": order_id})
         raise HTTPException(status_code=404, detail="Order not found")
     
     length = float(order.pipe_length_m)
@@ -263,6 +276,7 @@ async def get_loading_summary(
             })
     
     if not order_items:
+        logger.info("reports.summary.no_items", extra={"order_id": order_id})
         return {
             "order_id": order_id,
             "total_pipes": 0,
@@ -290,6 +304,7 @@ async def get_loading_summary(
     
     result = loading_plan_to_dict(plan)
     summary = generate_summary_data(result)
+    logger.info("reports.summary.generated", extra={"order_id": order_id, "trucks": len(result.get("trucks", []))})
     
     return {
         "order_id": order_id,

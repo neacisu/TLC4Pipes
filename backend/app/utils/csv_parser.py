@@ -7,9 +7,13 @@ Supports common formats and delimiters.
 
 import csv
 import io
+import logging
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Dict, Any
 from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -201,6 +205,7 @@ def parse_csv_content(
     warnings: List[str] = []
     
     if not content.strip():
+        logger.warning("csv.parse.empty_file")
         return ParseResult(
             items=[], errors=["Empty file"], warnings=[],
             total_rows=0, valid_rows=0
@@ -242,6 +247,7 @@ def parse_csv_content(
             errors.append("Missing required column: Quantity")
         
         if errors:
+            logger.warning("csv.parse.header_missing_required", extra={"errors": errors})
             return ParseResult(
                 items=[], errors=errors, warnings=warnings,
                 total_rows=len(data_rows), valid_rows=0
@@ -275,13 +281,17 @@ def parse_csv_content(
             row_errors.append("Invalid quantity")
         
         if row_errors:
-            errors.append(f"Row {row_idx}: {', '.join(row_errors)}")
+            msg = f"Row {row_idx}: {', '.join(row_errors)}"
+            errors.append(msg)
+            logger.warning("csv.parse.row_invalid", extra={"row": row_idx, "errors": row_errors})
             continue
         
         # Default PN if not specified
         if pn is None:
             pn = "PN6"
-            warnings.append(f"Row {row_idx}: PN not specified, defaulting to PN6")
+            warn_msg = f"Row {row_idx}: PN not specified, defaulting to PN6"
+            warnings.append(warn_msg)
+            logger.info("csv.parse.pn_default", extra={"row": row_idx})
         
         # Generate code if not provided
         if code is None:
@@ -325,6 +335,7 @@ def parse_csv_file(
         content = path.read_text(encoding=encoding)
         return parse_csv_content(content, **kwargs)
     except FileNotFoundError:
+        logger.error("csv.parse.file_missing", extra={"file_path": file_path})
         return ParseResult(
             items=[], errors=[f"File not found: {file_path}"], warnings=[],
             total_rows=0, valid_rows=0
@@ -335,6 +346,7 @@ def parse_csv_file(
             content = Path(file_path).read_text(encoding='latin-1')
             return parse_csv_content(content, **kwargs)
         except Exception as e:
+            logger.error("csv.parse.decode_failed", extra={"file_path": file_path, "error": str(e)})
             return ParseResult(
                 items=[], errors=[f"Encoding error: {str(e)}"], warnings=[],
                 total_rows=0, valid_rows=0
@@ -363,6 +375,7 @@ def parse_csv_bytes(
         except UnicodeDecodeError:
             continue
     
+    logger.error("csv.parse.decode_failed_bytes")
     return ParseResult(
         items=[], errors=["Could not decode file with any supported encoding"],
         warnings=[], total_rows=0, valid_rows=0
