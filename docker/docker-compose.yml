@@ -1,0 +1,85 @@
+# TLC4Pipe - Production Docker Compose
+# Calculator Încărcare Țeavă HDPE
+
+services:
+  # ============================================
+  # PostgreSQL 18.1 Database
+  # ============================================
+  db:
+    image: postgres:17-alpine
+    container_name: tlc4pipe-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tlc4pipe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tlc4pipe_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-tlc4pipe}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tlc4pipe} -d ${POSTGRES_DB:-tlc4pipe}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tlc4pipe-network
+
+  # ============================================
+  # FastAPI Backend
+  # ============================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+      target: production
+    container_name: tlc4pipe-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tlc4pipe}:${POSTGRES_PASSWORD:-tlc4pipe_secret}@db:5432/${POSTGRES_DB:-tlc4pipe}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:80}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tlc4pipe-network
+
+  # ============================================
+  # React Frontend (nginx)
+  # ============================================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+      target: production
+    container_name: tlc4pipe-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tlc4pipe-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  tlc4pipe-network:
+    driver: bridge

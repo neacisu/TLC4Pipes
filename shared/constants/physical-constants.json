@@ -1,0 +1,60 @@
+{
+    "_metadata": {
+        "id": "physical-constants",
+        "title": "HDPE Physical Constants",
+        "description": "Material properties and physical constants for HDPE pipe calculations"
+    },
+    "material_properties": {
+        "hdpe_density_kg_m3": 950,
+        "friction_coefficient": {
+            "hdpe_on_hdpe": {
+                "static": 0.3,
+                "dynamic": 0.2
+            },
+            "hdpe_on_steel": {
+                "static": 0.35,
+                "dynamic": 0.25
+            },
+            "hdpe_on_wood": {
+                "static": 0.4,
+                "dynamic": 0.3
+            }
+        }
+    },
+    "manufacturing_tolerances": {
+        "ovality_percent": 4.0,
+        "wall_thickness_tolerance_percent": 10.0,
+        "length_tolerance_mm": 50,
+        "reference_standards": [
+            "ISO 4427",
+            "DIN 8074"
+        ]
+    },
+    "sdr_classes": {
+        "SDR11": {
+            "pn_class": "PN16",
+            "pressure_rating_bar": 16,
+            "wall_rigidity": "high"
+        },
+        "SDR17": {
+            "pn_class": "PN10",
+            "pressure_rating_bar": 10,
+            "wall_rigidity": "medium-high"
+        },
+        "SDR21": {
+            "pn_class": "PN8",
+            "pressure_rating_bar": 8,
+            "wall_rigidity": "medium"
+        },
+        "SDR26": {
+            "pn_class": "PN6",
+            "pressure_rating_bar": 6,
+            "wall_rigidity": "low"
+        }
+    },
+    "pipe_lengths_m": [
+        12.0,
+        12.5,
+        13.0
+    ]
+}

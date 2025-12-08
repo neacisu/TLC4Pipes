@@ -1,0 +1,36 @@
+{
+    "_metadata": {
+        "id": "safety-margins",
+        "title": "Safety Margins for HDPE Pipe Nesting",
+        "description": "Gap clearance formula and safety limits per specification section 3.1"
+    },
+    "gap_clearance": {
+        "formula": "Gap_min = C_base + (Factor_diameter × DN_outer)",
+        "c_base_mm": 15,
+        "factor_diameter": 0.015,
+        "description": "15mm base + 1.5% of outer diameter for manipulation and ovality"
+    },
+    "ovality_adjustment": {
+        "default_ovality_percent": 4.0,
+        "formula": "ovality_adjusted_inner = host_inner_diameter × (1 - ovality_percent/100)",
+        "description": "Reduces effective inner diameter by 4% for transport/storage deformation"
+    },
+    "nesting_limits": {
+        "max_nesting_levels": 4,
+        "recommended_levels": 3,
+        "reason": "Beyond 3-4 levels: stability issues and exponentially slower loading/unloading"
+    },
+    "extraction_warnings": {
+        "heavy_extraction_threshold_kg": 2000,
+        "warning_message": "Atenție: Necesită echipament greu pentru extragere",
+        "max_weight_ratio_inner_to_outer": 2.0,
+        "description": "Inner pipe should not be >2x heavier than outer to prevent structural damage"
+    },
+    "stacking_limits": {
+        "sdr26_max_rows": 4,
+        "sdr21_max_rows": 5,
+        "sdr17_max_rows": 6,
+        "sdr11_max_rows": 8,
+        "description": "SDR 26 pipes are more susceptible to ovalization under stack weight"
+    }
+}

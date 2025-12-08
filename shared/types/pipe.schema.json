@@ -1,0 +1,72 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://tlc4pipe.local/schemas/pipe.schema.json",
+    "title": "HDPE Pipe",
+    "description": "Schema for validating HDPE pipe catalog entries",
+    "type": "object",
+    "required": [
+        "code",
+        "sdr",
+        "pn_class",
+        "dn_mm",
+        "wall_mm",
+        "inner_diameter_mm",
+        "weight_per_meter"
+    ],
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Unique identifier in database"
+        },
+        "code": {
+            "type": "string",
+            "pattern": "^TPE[0-9]{3}/PN(6|8|10|16)/BR$",
+            "description": "Product code, e.g., TPE200/PN6/BR"
+        },
+        "sdr": {
+            "type": "integer",
+            "enum": [
+                11,
+                17,
+                21,
+                26
+            ],
+            "description": "Standard Dimension Ratio"
+        },
+        "pn_class": {
+            "type": "string",
+            "enum": [
+                "PN6",
+                "PN8",
+                "PN10",
+                "PN16"
+            ],
+            "description": "Pressure class"
+        },
+        "dn_mm": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 800,
+            "description": "Nominal diameter in millimeters (outer diameter)"
+        },
+        "wall_mm": {
+            "type": "number",
+            "minimum": 1.0,
+            "maximum": 80.0,
+            "description": "Wall thickness in millimeters"
+        },
+        "inner_diameter_mm": {
+            "type": "number",
+            "minimum": 10,
+            "maximum": 750,
+            "description": "Inner diameter in millimeters (dn_mm - 2 × wall_mm)"
+        },
+        "weight_per_meter": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 200,
+            "description": "Weight per linear meter in kilograms"
+        }
+    },
+    "additionalProperties": false
+}

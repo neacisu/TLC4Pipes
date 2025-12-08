@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "name": "Standard 24t Romania",
+        "description": "Standard Romanian semi-trailer for HDPE pipe transport",
+        "max_payload_kg": 24000,
+        "internal_length_mm": 13600,
+        "internal_width_mm": 2480,
+        "internal_height_mm": 2700,
+        "max_axle_weight_kg": 11500,
+        "floor_type": "steel",
+        "has_side_curtains": true
+    },
+    {
+        "id": 2,
+        "name": "Mega Trailer Romania",
+        "description": "Mega trailer with extended height for voluminous loads",
+        "max_payload_kg": 24000,
+        "internal_length_mm": 13600,
+        "internal_width_mm": 2480,
+        "internal_height_mm": 3000,
+        "max_axle_weight_kg": 11500,
+        "floor_type": "steel",
+        "has_side_curtains": true
+    }
+]

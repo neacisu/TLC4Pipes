@@ -1,0 +1,81 @@
+# TLC4Pipe - Development Docker Compose
+# Hot-reload enabled for development with pnpm
+
+services:
+  # ============================================
+  # PostgreSQL 17 Database
+  # ============================================
+  db:
+    image: postgres:17-alpine
+    container_name: tlc4pipe-db-dev
+    environment:
+      POSTGRES_USER: tlc4pipe
+      POSTGRES_PASSWORD: tlc4pipe_dev
+      POSTGRES_DB: tlc4pipe_dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U tlc4pipe -d tlc4pipe_dev" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tlc4pipe-dev
+
+  # ============================================
+  # FastAPI Backend (Development with hot-reload)
+  # ============================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+      target: development
+    container_name: tlc4pipe-backend-dev
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tlc4pipe:tlc4pipe_dev@db:5432/tlc4pipe_dev
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      SECRET_KEY: dev-secret-key-not-for-production
+      DEBUG: "true"
+    volumes:
+      - ../backend:/app
+      - /app/__pycache__
+      - /app/.venv
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tlc4pipe-dev
+
+  # ============================================
+  # React Frontend (Vite dev server with pnpm)
+  # ============================================
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+      target: development
+    container_name: tlc4pipe-frontend-dev
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - tlc4pipe-dev
+
+volumes:
+  postgres_data_dev:
+
+
+networks:
+  tlc4pipe-dev:
+    driver: bridge

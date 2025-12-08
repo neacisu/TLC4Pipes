@@ -1,0 +1,42 @@
+{
+    "_metadata": {
+        "id": "transport-limits",
+        "title": "Romanian Transport Limits",
+        "description": "Legal transport constraints per OG 43/1997 and CNAIR regulations"
+    },
+    "weight_limits": {
+        "max_payload_kg": 24000,
+        "max_total_vehicle_kg": 40000,
+        "axle_limits": {
+            "tractor_drive_axle_kg": 11500,
+            "triple_axle_group_kg": 24000,
+            "single_axle_kg": 8000
+        }
+    },
+    "dimension_limits": {
+        "standard_trailer": {
+            "internal_length_mm": 13600,
+            "internal_width_mm": 2480,
+            "internal_height_mm": 2700,
+            "name": "Standard 24t Romania"
+        },
+        "mega_trailer": {
+            "internal_length_mm": 13600,
+            "internal_width_mm": 2480,
+            "internal_height_mm": 3000,
+            "name": "Mega Trailer Romania"
+        }
+    },
+    "center_of_gravity": {
+        "optimal_position_from_front_m": 6.8,
+        "min_position_m": 5.5,
+        "max_position_m": 8.0,
+        "warning_threshold_m": 1.0
+    },
+    "securing_requirements": {
+        "min_straps_per_24t": 10,
+        "strap_pretension_dan": 500,
+        "anti_slip_mats_required": true,
+        "reference_standard": "EN 12195"
+    }
+}

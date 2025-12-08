@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "composite": true,
+        "skipLibCheck": true,
+        "module": "ESNext",
+        "allowJs": true,
+        "outDir": "./dist/node_config_temp"
+    },
+    "include": [
+        "vite.config.js"
+    ]
+}

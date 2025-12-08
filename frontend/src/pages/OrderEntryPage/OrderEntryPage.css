@@ -1,0 +1,66 @@
+.order-entry-page h1 {
+    margin-bottom: 0.5rem;
+}
+
+.page-description {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+.order-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.length-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.length-selector label {
+    font-weight: 500;
+}
+
+.length-selector select {
+    min-width: 120px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem !important;
+    color: var(--text-muted);
+}
+
+.order-summary {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-item span {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.summary-item strong {
+    font-size: 1.25rem;
+}
+
+.btn-large {
+    margin-left: auto;
+    padding: 1rem 2rem;
+    font-size: 1rem;
+}

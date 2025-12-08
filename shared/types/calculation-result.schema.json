@@ -1,0 +1,182 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://tlc4pipe.local/schemas/calculation-result.schema.json",
+    "title": "Loading Calculation Result",
+    "description": "Schema for the loading optimization result",
+    "type": "object",
+    "required": [
+        "summary",
+        "trucks",
+        "nesting_stats",
+        "weight_limits"
+    ],
+    "properties": {
+        "summary": {
+            "type": "object",
+            "required": [
+                "total_pipes",
+                "total_weight_kg",
+                "trucks_needed"
+            ],
+            "properties": {
+                "total_pipes": {
+                    "type": "integer"
+                },
+                "total_weight_kg": {
+                    "type": "number"
+                },
+                "trucks_needed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "trucks": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/truckLoad"
+            }
+        },
+        "nesting_stats": {
+            "type": "object",
+            "properties": {
+                "nesting_enabled": {
+                    "type": "boolean"
+                },
+                "bundles_with_nesting": {
+                    "type": "integer"
+                },
+                "max_levels_used": {
+                    "type": "integer"
+                },
+                "estimated_space_reduction_pct": {
+                    "type": "number"
+                }
+            }
+        },
+        "weight_limits": {
+            "type": "object",
+            "properties": {
+                "is_valid": {
+                    "type": "boolean"
+                },
+                "total_weight_kg": {
+                    "type": "number"
+                },
+                "max_payload_kg": {
+                    "type": "integer"
+                },
+                "utilization_pct": {
+                    "type": "number"
+                },
+                "remaining_kg": {
+                    "type": "number"
+                },
+                "overweight_kg": {
+                    "type": "number"
+                }
+            }
+        },
+        "warnings": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "definitions": {
+        "truckLoad": {
+            "type": "object",
+            "required": [
+                "truck_number",
+                "total_weight_kg",
+                "bundles"
+            ],
+            "properties": {
+                "truck_number": {
+                    "type": "integer"
+                },
+                "total_weight_kg": {
+                    "type": "number"
+                },
+                "weight_utilization_pct": {
+                    "type": "number"
+                },
+                "remaining_capacity_kg": {
+                    "type": "number"
+                },
+                "bundle_count": {
+                    "type": "integer"
+                },
+                "bundles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/nestedBundle"
+                    }
+                }
+            }
+        },
+        "nestedBundle": {
+            "type": "object",
+            "required": [
+                "outer_pipe",
+                "nesting_levels",
+                "bundle_weight_kg"
+            ],
+            "properties": {
+                "outer_pipe": {
+                    "$ref": "#/definitions/pipeReference"
+                },
+                "nested_pipes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/nestedBundle"
+                    }
+                },
+                "nesting_levels": {
+                    "type": "integer"
+                },
+                "total_pipes": {
+                    "type": "integer"
+                },
+                "bundle_weight_kg": {
+                    "type": "number"
+                },
+                "requires_heavy_extraction": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "pipeReference": {
+            "type": "object",
+            "properties": {
+                "pipe_id": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "dn_mm": {
+                    "type": "integer"
+                },
+                "sdr": {
+                    "type": "integer"
+                },
+                "pn_class": {
+                    "type": "string"
+                },
+                "inner_diameter_mm": {
+                    "type": "number"
+                },
+                "wall_mm": {
+                    "type": "number"
+                },
+                "weight_per_meter": {
+                    "type": "number"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
