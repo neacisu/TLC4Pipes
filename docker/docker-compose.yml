@@ -37,6 +37,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:8811}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DEBUG: ${DEBUG:-false}
+    ports:
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy

@@ -36,7 +36,7 @@ services:
     container_name: tlc4pipe-backend-dev
     environment:
       DATABASE_URL: postgresql+asyncpg://tlc4pipe:tlc4pipe_dev@db:5432/tlc4pipe_dev
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:8811,http://127.0.0.1:8811
       SECRET_KEY: dev-secret-key-not-for-production
       DEBUG: "true"
     volumes:

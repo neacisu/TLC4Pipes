@@ -52,8 +52,11 @@ CREATE TABLE IF NOT EXISTS order_items (
     order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
     pipe_id INTEGER REFERENCES pipe_catalog(id),
     quantity INTEGER NOT NULL,
+    ordered_meters DECIMAL(12,2),
+    pipe_count INTEGER,
     line_weight_kg DECIMAL(12,2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
