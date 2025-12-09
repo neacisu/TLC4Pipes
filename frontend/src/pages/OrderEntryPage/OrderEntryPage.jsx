@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Upload, Calculator } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Upload, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,20 +10,188 @@ import { toast } from "sonner"; // Direct import for sonner
 import OrderGrid from "@/components/order/OrderGrid";
 import { orderService } from "@/services/orderService";
 import { calculationService } from "@/services/calculationService";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 
 export default function OrderEntryPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { orderId } = useParams();
     const [items, setItems] = useState([]);
     const [pipeLength, setPipeLength] = useState(12.0);
     const [isCalculating, setIsCalculating] = useState(false);
+    const [draftOrder, setDraftOrder] = useState(null);
 
-    const handleAddItem = (newItem) => {
-        setItems((prev) => [...prev, { ...newItem, id: Date.now() }]); // simple client-side ID for now
+    const mapOrderItems = (orderItems = [], lengthMeters) => {
+        return orderItems.map((item) => {
+            const qty = item.quantity;
+            // Use backend values if available, else compute for backwards compat
+            const orderedMeters = item.ordered_meters ?? item.orderedMeters;
+            const pipeCount = item.pipe_count ?? item.pipeCount ?? qty;
+            const meters = orderedMeters ?? (qty && lengthMeters ? qty * parseFloat(lengthMeters) : undefined);
+            return {
+                id: item.id || item.item_id || item.pipe_id,
+                pipeId: item.pipe_id ?? item.pipeId,
+                code: item.pipe_details?.code || item.pipe_code || item.code || `Pipe ${item.pipe_id ?? item.pipeId}`,
+                quantity: qty,
+                orderedMeters,
+                pipeCount,
+                meters,
+                dn: item.pipe_details?.dn_mm ?? item.dn_mm,
+                pn: item.pipe_details?.pn_class ?? item.pn_class,
+            };
+        }).filter(Boolean);
     };
 
-    const handleRemoveItem = (index) => {
+    const initializeFromOrder = (orderData) => {
+        if (!orderData) return;
+        setDraftOrder(orderData);
+        if (orderData.pipe_length_m) {
+            setPipeLength(parseFloat(orderData.pipe_length_m));
+        }
+        if (Array.isArray(orderData.items)) {
+            const lengthMeters = orderData.pipe_length_m || pipeLength;
+            setItems(mapOrderItems(orderData.items, lengthMeters));
+        }
+    };
+
+    useEffect(() => {
+        let isActive = true;
+
+        const loadOrder = async () => {
+            // When navigating from elsewhere with state
+            if (!orderId && location.state?.order) {
+                initializeFromOrder(location.state.order);
+                return;
+            }
+
+            // Existing draft/edit path
+            if (orderId) {
+                try {
+                    const response = await orderService.getOrder(orderId);
+                    const fetchedOrder = response?.order ?? response;
+
+                    if (!fetchedOrder) {
+                        toast.error("Order not found");
+                        navigate("/", { replace: true });
+                        return;
+                    }
+
+                    if (fetchedOrder.status && fetchedOrder.status !== "draft") {
+                        toast.error(`Order cannot be edited (status: ${fetchedOrder.status})`);
+                        navigate("/", { replace: true });
+                        return;
+                    }
+
+                    if (isActive) {
+                        initializeFromOrder(fetchedOrder);
+                    }
+                    return;
+                } catch (error) {
+                    console.error(error);
+                    toast.error("Failed to load order");
+                    navigate("/", { replace: true });
+                    return;
+                }
+            }
+
+            // New draft scenario
+            try {
+                const created = await orderService.createOrder({
+                    pipe_length_m: parseFloat(pipeLength),
+                    items: [],
+                });
+                if (created?.order && isActive) {
+                    setDraftOrder(created.order);
+                }
+            } catch (error) {
+                console.error(error);
+                toast.error("Failed to start a new order");
+            }
+        };
+
+        loadOrder();
+
+        return () => {
+            isActive = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orderId, location.state, navigate]);
+
+    const ensureDraftOrder = async () => {
+        if (draftOrder?.id) return draftOrder;
+        const created = await orderService.createOrder({
+            pipe_length_m: parseFloat(pipeLength),
+            items: [],
+        });
+        setDraftOrder(created.order);
+        return created.order;
+    };
+
+    const handleAddItem = async (newItem) => {
+        const length = parseFloat(pipeLength);
+        if (!length || length <= 0) {
+            toast.error("Invalid pipe length");
+            return;
+        }
+
+        const requestedMeters = parseFloat(newItem.meters);
+        if (!requestedMeters || requestedMeters <= 0) {
+            toast.error("Introduce o cantitate in metri");
+            return;
+        }
+
+        const pipeCount = Math.ceil(requestedMeters / length);
+        const adjustedMeters = pipeCount * length;
+
+        try {
+            // Ensure we have a draft order
+            const order = await ensureDraftOrder();
+
+            // Save item to DB immediately
+            const response = await orderService.addItem(order.id, {
+                pipe_id: parseInt(newItem.pipeId),
+                quantity: pipeCount,
+                total_meters: requestedMeters,
+            });
+
+            // Add to local state with the DB id
+            const savedItemId = response?.item?.id || Date.now();
+            setItems((prev) => [
+                ...prev,
+                {
+                    ...newItem,
+                    id: savedItemId,
+                    quantity: pipeCount,
+                    orderedMeters: requestedMeters,
+                    pipeCount,
+                    meters: adjustedMeters,
+                },
+            ]);
+
+            toast.success("Item added");
+        } catch (error) {
+            console.error("Failed to add item:", error);
+            toast.error("Failed to add item: " + (error.response?.data?.detail || error.message));
+        }
+    };
+
+    const handleRemoveItem = async (index) => {
+        const item = items[index];
+        if (!item) return;
+
+        // Remove from local state immediately for responsive UI
         setItems((prev) => prev.filter((_, i) => i !== index));
+
+        // If item has a DB id, delete from backend
+        if (draftOrder?.id && item.id && typeof item.id === 'number') {
+            try {
+                await orderService.deleteItem(draftOrder.id, item.id);
+            } catch (error) {
+                console.error("Failed to delete item from DB:", error);
+                // Optionally restore item on error
+                toast.error("Failed to delete item from server");
+            }
+        }
     };
 
     const handleCalculate = async () => {
@@ -35,22 +203,36 @@ export default function OrderEntryPage() {
         try {
             setIsCalculating(true);
 
-            // 1. Create the order in DB first (Draft)
-            const orderPayload = {
-                pipe_length_m: parseFloat(pipeLength),
-                items: items.map(item => ({
-                    pipe_id: parseInt(item.pipeId),
-                    quantity: parseInt(item.quantity)
-                }))
-            };
+            const order = await ensureDraftOrder();
+            const orderId = order.id;
 
-            const createdOrder = await orderService.createOrder(orderPayload);
-            const orderId = createdOrder.order.id;
-            toast.success(`Order #${createdOrder.order.order_number} created`);
+            // Verify items are saved by refreshing from DB
+            const freshOrder = await orderService.getOrder(orderId);
+            const savedItems = freshOrder?.items || [];
 
-            // 2. Perform calculation
-            const requestPoints = items.map(item => ({
-                pipe_id: parseInt(item.pipeId),
+            if (savedItems.length !== items.length) {
+                toast.warning(`Syncing items: ${items.length} local vs ${savedItems.length} saved`);
+                // Items not yet saved - this shouldn't happen now but handle gracefully
+                for (const item of items) {
+                    const alreadySaved = savedItems.some(
+                        (s) => s.pipe_id === parseInt(item.pipeId) && s.quantity === item.quantity
+                    );
+                    if (!alreadySaved) {
+                        await orderService.addItem(orderId, {
+                            pipe_id: parseInt(item.pipeId),
+                            quantity: parseInt(item.quantity),
+                            total_meters: item.orderedMeters || item.meters,
+                        });
+                    }
+                }
+            }
+
+            toast.success(`Order #${order.order_number} - calculating with ${savedItems.length || items.length} items`);
+
+            // 2. Perform calculation using saved items
+            const itemsForCalc = savedItems.length > 0 ? savedItems : items;
+            const requestPoints = itemsForCalc.map(item => ({
+                pipe_id: parseInt(item.pipe_id ?? item.pipeId),
                 quantity: parseInt(item.quantity)
             }));
 
@@ -58,17 +240,18 @@ export default function OrderEntryPage() {
                 items: requestPoints,
                 pipe_length_m: parseFloat(pipeLength),
                 enable_nesting: true,
-                max_nesting_levels: 4
+                max_nesting_levels: 10
             });
 
-            // 3. Update status to calculated
-            await orderService.updateStatus(orderId, "calculated");
+            // Status stays as 'draft' until user validates in results page
+            // await orderService.updateStatus(orderId, "calculated");
 
             // 4. Navigate to results with order context
             navigate(`/results?orderId=${orderId}`, {
                 state: {
                     result: response,
-                    orderId: orderId
+                    orderId: orderId,
+                    orderNumber: order.order_number
                 }
             });
 
@@ -100,11 +283,13 @@ export default function OrderEntryPage() {
             const result = await orderService.importCsv(file, pipeLength);
             if (result.order && result.order.items) {
                 // Transform backend items to frontend format
+                const length = parseFloat(result.order.pipe_length_m || pipeLength);
                 const importedItems = result.order.items.map(i => ({
                     id: i.id,
                     pipeId: i.pipe_id,
                     code: i.pipe_details?.code || `Pipe ${i.pipe_id}`, // Fallback if details missing
                     quantity: i.quantity,
+                    meters: i.quantity && length ? i.quantity * length : undefined,
                     dn: i.pipe_details?.dn_mm,
                     pn: i.pipe_details?.pn_class
                 }));

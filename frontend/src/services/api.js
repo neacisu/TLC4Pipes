@@ -1,9 +1,13 @@
 import axios from 'axios';
 
-// Create axios instance with base URL
+// Determine API base URL for both container (nginx proxy) and local dev
+const runtimeBaseUrl =
+    (typeof window !== 'undefined' && `${window.location.origin}/api/v1`) ||
+    'http://localhost:8000/api/v1';
+
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api/v1',
-    timeout: 60000, // 60 seconds
+    baseURL: runtimeBaseUrl,
+    timeout: 60000,
     headers: {
         'Content-Type': 'application/json',
     },

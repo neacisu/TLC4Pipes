@@ -9,6 +9,7 @@ from app.core.geometry.hexagonal_packing import (
     calculate_stack_height_mm,
     calculate_max_rows,
     calculate_pipes_per_row,
+    estimate_mixed_stack_height,
     PackingResult,
     PipePosition,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "calculate_stack_height_mm",
     "calculate_max_rows",
     "calculate_pipes_per_row",
+    "estimate_mixed_stack_height",
     "PackingResult",
     "PipePosition",
     # Stacking

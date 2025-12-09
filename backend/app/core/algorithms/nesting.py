@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Maximum nesting levels (from specification section 3.3)
-MAX_NESTING_LEVELS = 4
+MAX_NESTING_LEVELS = 10  # Increased to support DN800 to DN20 nesting chains
 
 
 @dataclass

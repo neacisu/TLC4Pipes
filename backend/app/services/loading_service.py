@@ -135,16 +135,38 @@ def calculate_loading_plan(
         for t in trucks
     )
     
+    # Calculate how many individual pipes are nested inside others
+    total_nested_pipes = sum(
+        sum((b.get("nesting_levels", 1) - 1) for b in t.get("bundles", []))
+        for t in trucks
+    )
+    
+    # Calculate total bundles (outer pipes only, not nested ones)
+    total_bundles = sum(len(t.get("bundles", [])) for t in trucks)
+    
+    # Calculate nesting efficiency as: nested_pipes / total_pipes * 100
+    # This shows what percentage of pipes are telescoped inside others
+    nesting_efficiency = round(
+        (total_nested_pipes / total_pipes) * 100, 1
+    ) if enable_nesting and total_pipes > 0 else 0
+    
+    # Space reduction: how many fewer "slots" needed due to nesting
+    # (1 - bundles/pipes) * 100 = space saved
+    space_reduction = round(
+        (1 - total_bundles / total_pipes) * 100, 1
+    ) if total_pipes > 0 else 0
+    
     nesting_stats = {
         "nesting_enabled": enable_nesting,
         "bundles_with_nesting": nested_count,
+        "nested_pipes": total_nested_pipes,
+        "total_bundles": total_bundles,
         "max_levels_used": max(
             max((b.get("nesting_levels", 1) for b in t.get("bundles", [])), default=1)
             for t in trucks
         ) if trucks else 0,
-        "estimated_space_reduction_pct": round(
-            (1 - len(trucks) / max(1, len(order_items))) * 100, 1
-        ) if enable_nesting else 0
+        "estimated_space_reduction_pct": space_reduction,
+        "nesting_efficiency_percent": nesting_efficiency
     }
     
     result = LoadingPlanResult(
@@ -177,8 +199,10 @@ def loading_plan_to_dict(result: LoadingPlanResult) -> dict:
         "order_id": result.order_id,
         "pipe_length_m": result.pipe_length_m,
         "summary": {
+            "total_items": result.total_pipes,
             "total_pipes": result.total_pipes,
             "total_weight_kg": result.total_weight_kg,
+            "trucks_count": result.trucks_needed,
             "trucks_needed": result.trucks_needed,
         },
         "trucks": result.trucks,

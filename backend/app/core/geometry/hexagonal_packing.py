@@ -303,3 +303,67 @@ def validate_stacking_layers(
         )
     
     return True, None
+
+
+def estimate_mixed_stack_height(
+    diameters: List[float],
+    container_width_mm: float,
+    gap_mm: float = 20.0
+) -> float:
+    """
+    Estimate total height needed to stack bundles with different diameters.
+    
+    Uses row-based hexagonal packing simulation:
+    1. Sort bundles by diameter descending
+    2. Place in rows until width is exceeded
+    3. Stack rows using hex spacing factor (sqrt(3)/2)
+    
+    Args:
+        diameters: List of bundle outer diameters (mm)
+        container_width_mm: Container width (mm)
+        gap_mm: Gap between bundles (mm)
+        
+    Returns:
+        Estimated stack height (mm)
+    """
+    if not diameters:
+        return 0.0
+    
+    # Sort by diameter descending
+    sorted_diameters = sorted(diameters, reverse=True)
+    
+    # Track row heights (use max diameter per row for hex calculation)
+    rows: List[float] = []  # Max diameter in each row
+    current_z = 0.0
+    row_max_diameter = 0.0
+    
+    for diameter in sorted_diameters:
+        # Check if fits in current row
+        if current_z + diameter > container_width_mm:
+            # Save current row max and start new row
+            if row_max_diameter > 0:
+                rows.append(row_max_diameter)
+            current_z = 0.0
+            row_max_diameter = 0.0
+        
+        current_z += diameter + gap_mm
+        row_max_diameter = max(row_max_diameter, diameter)
+    
+    # Don't forget last row
+    if row_max_diameter > 0:
+        rows.append(row_max_diameter)
+    
+    if not rows:
+        return 0.0
+    
+    # Calculate total height using hexagonal stacking
+    # First row: full diameter of largest pipe in that row
+    total_height = rows[0]
+    
+    # Subsequent rows: use average diameter for hex spacing
+    for i in range(1, len(rows)):
+        avg_diameter = (rows[i-1] + rows[i]) / 2
+        total_height += avg_diameter * SQRT3_OVER_2
+    
+    return total_height
+

@@ -4,13 +4,20 @@ from uuid import UUID
 from decimal import Decimal
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class OrderItemCreate(BaseModel):
     """Schema for adding an item to an order."""
     pipe_id: int
-    quantity: int = Field(..., ge=1, le=100000)
+    quantity: Optional[int] = Field(None, ge=1, le=100000)
+    total_meters: Optional[Decimal] = Field(None, gt=0)
+
+    @model_validator(mode="after")
+    def ensure_quantity_or_meters(self):
+        if self.quantity is None and self.total_meters is None:
+            raise ValueError("Either quantity or total_meters must be provided")
+        return self
 
 
 class OrderItemResponse(BaseModel):

@@ -14,9 +14,9 @@ from typing import Optional
 
 
 # Constants from specification document
-BASE_CLEARANCE_MM = 15.0  # Minimum absolute gap
+BASE_CLEARANCE_MM = 11.0  # Minimum absolute gap (reduced from 15mm based on real-world testing)
 DIAMETER_FACTOR = 0.015   # 1.5% of outer diameter
-OVALITY_FACTOR = 0.04     # 4% max ovality during transport
+OVALITY_FACTOR = 0.015    # 1.5% ovality (reduced from 4% - pipes are relatively straight in practice)
 
 
 @dataclass

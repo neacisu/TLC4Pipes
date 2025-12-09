@@ -56,6 +56,8 @@ class OrderItem(Base, TimestampMixin):
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"))
     pipe_id: Mapped[int] = mapped_column(ForeignKey("pipe_catalog.id"))
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    ordered_meters: Mapped[float] = mapped_column(Numeric(12, 2), nullable=True, comment="Original meters ordered (unrounded)")
+    pipe_count: Mapped[int] = mapped_column(Integer, nullable=True, comment="Number of pipes after rounding up")
     line_weight_kg: Mapped[float] = mapped_column(Numeric(12, 2), nullable=True)
     
     # Relationships

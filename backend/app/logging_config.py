@@ -111,5 +111,3 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None, enable_sq
     """Apply logging configuration using dictConfig."""
     config = build_logging_config(level=level, log_file=log_file, enable_sql=enable_sql)
     logging.config.dictConfig(config)
-
-*** End Patch

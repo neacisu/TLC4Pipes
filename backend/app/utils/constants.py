@@ -31,7 +31,7 @@ DIAMETER_FACTOR = 0.015   # 1.5% of outer diameter for ovality
 OVALITY_FACTOR = 0.04     # 4% max ovality during transport
 
 # Nesting Limits (from specification section 3.3)
-MAX_NESTING_LEVELS = 4
+MAX_NESTING_LEVELS = 10
 HEAVY_EXTRACTION_THRESHOLD_KG = 2000  # Warn if bundle > 2000kg
 
 # Transport Limits - Romania (from OG 43/1997, CNAIR norms)

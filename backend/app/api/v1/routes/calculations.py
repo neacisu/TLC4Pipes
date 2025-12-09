@@ -36,7 +36,7 @@ class OptimizeRequest(BaseModel):
     pipe_length_m: float = Field(12.0, ge=6, le=18)
     truck_config_id: Optional[int] = None
     enable_nesting: bool = True
-    max_nesting_levels: int = Field(4, ge=1, le=6)
+    max_nesting_levels: int = Field(4, ge=1, le=10)
 
 
 class OptimizeResponse(BaseModel):

@@ -6,6 +6,7 @@ Business logic for order management.
 
 import logging
 from typing import List, Optional, Tuple
+import math
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -56,7 +57,8 @@ async def add_order_item(
     session: AsyncSession,
     order_id: int,
     pipe_id: int,
-    quantity: int
+    quantity: Optional[int] = None,
+    total_meters: Optional[float] = None
 ) -> Tuple[OrderItem, Optional[str]]:
     """
     Add an item to an order.
@@ -86,7 +88,27 @@ async def add_order_item(
         logger.warning("order.add_item.pipe_missing", extra={"order_id": order_id, "pipe_id": pipe_id})
         return None, f"Pipe {pipe_id} not found in catalog"
     
-    # Calculate line weight
+    # Derive quantity if provided as meters
+    ordered_meters_value = None
+    pipe_count_value = None
+    if total_meters is not None:
+        ordered_meters_value = float(total_meters)
+        computed_qty = math.ceil(ordered_meters_value / float(order.pipe_length_m))
+        pipe_count_value = max(computed_qty, 1)
+        quantity = pipe_count_value
+
+    if quantity is None:
+        logger.warning(
+            "order.add_item.quantity_missing",
+            extra={"order_id": order_id, "pipe_id": pipe_id, "total_meters": total_meters},
+        )
+        return None, "Quantity is required"
+
+    # If quantity was provided directly (no meters), store pipe_count = quantity
+    if pipe_count_value is None:
+        pipe_count_value = quantity
+
+    # Calculate line weight using quantity derived above
     line_weight = float(pipe.weight_per_meter) * float(order.pipe_length_m) * quantity
     
     # Create item
@@ -94,6 +116,8 @@ async def add_order_item(
         order_id=order_id,
         pipe_id=pipe_id,
         quantity=quantity,
+        ordered_meters=ordered_meters_value,
+        pipe_count=pipe_count_value,
         line_weight_kg=line_weight
     )
     session.add(item)
@@ -190,6 +214,8 @@ async def get_order_with_items(
                 "dn_mm": item.pipe.dn_mm if item.pipe else None,
                 "pn_class": item.pipe.pn_class if item.pipe else None,
                 "quantity": item.quantity,
+                "ordered_meters": float(item.ordered_meters) if item.ordered_meters else None,
+                "pipe_count": item.pipe_count,
                 "line_weight_kg": float(item.line_weight_kg) if item.line_weight_kg else 0
             }
             for item in order.items
@@ -201,7 +227,7 @@ async def list_orders(
     session: AsyncSession,
     skip: int = 0,
     limit: int = 50,
-    status: Optional[str] = None
+    statuses: Optional[List[str]] = None
 ) -> List[dict]:
     """
     List orders with pagination.
@@ -216,9 +242,9 @@ async def list_orders(
         List of order dicts
     """
     query = select(Order)
-    
-    if status:
-        query = query.where(Order.status == status)
+
+    if statuses:
+        query = query.where(Order.status.in_(statuses))
     
     query = query.offset(skip).limit(limit).order_by(Order.created_at.desc())
     
@@ -233,7 +259,7 @@ async def list_orders(
             "status": o.status,
             "total_pipes": o.total_pipes,
             "total_weight_kg": float(o.total_weight_kg) if o.total_weight_kg else 0,
-            "created_at": o.created_at.isoformat() if o.created_at else None
+            "created_at": o.created_at.isoformat() if o.created_at else None,
         }
         for o in orders
     ]
@@ -263,6 +289,42 @@ async def delete_order(session: AsyncSession, order_id: int) -> bool:
     return True
 
 
+async def delete_order_item(
+    session: AsyncSession,
+    order_id: int,
+    item_id: int
+) -> bool:
+    """
+    Delete a specific item from an order.
+    
+    Args:
+        session: Database session
+        order_id: Order ID
+        item_id: Item ID
+        
+    Returns:
+        True if deleted, False if not found
+    """
+    query = select(OrderItem).where(
+        OrderItem.id == item_id,
+        OrderItem.order_id == order_id
+    )
+    item = (await session.execute(query)).scalar_one_or_none()
+    
+    if not item:
+        logger.warning("order.delete_item.not_found", extra={"order_id": order_id, "item_id": item_id})
+        return False
+    
+    await session.delete(item)
+    await session.commit()
+    
+    # Update order totals
+    await update_order_totals(session, order_id)
+    
+    logger.info("order.delete_item.success", extra={"order_id": order_id, "item_id": item_id})
+    return True
+
+
 async def update_order_status(
     session: AsyncSession,
     order_id: int,
@@ -271,7 +333,7 @@ async def update_order_status(
     """
     Update order status.
     
-    Valid statuses: draft, processing, calculated, completed
+    Valid statuses: draft, processing, calculated, completed, cancelled
     
     Args:
         session: Database session
@@ -281,7 +343,7 @@ async def update_order_status(
     Returns:
         Updated order or None
     """
-    valid_statuses = ["draft", "processing", "calculated", "completed"]
+    valid_statuses = ["draft", "processing", "calculated", "completed", "cancelled"]
     if status not in valid_statuses:
         logger.warning("order.status.invalid", extra={"order_id": order_id, "status": status})
         return None

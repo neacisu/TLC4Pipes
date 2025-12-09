@@ -4,7 +4,9 @@ export const orderService = {
     // List all orders
     listOrders: async (params = {}) => {
         const response = await api.get('/orders/', { params });
-        return response.data;
+        const orders = response.data?.orders ?? [];
+        const count = response.data?.count ?? orders.length;
+        return { orders, count };
     },
 
     // Get specific order
@@ -22,6 +24,12 @@ export const orderService = {
     // Add item to order
     addItem: async (orderId, data) => {
         const response = await api.post(`/orders/${orderId}/items`, data);
+        return response.data;
+    },
+
+    // Delete item from order
+    deleteItem: async (orderId, itemId) => {
+        const response = await api.delete(`/orders/${orderId}/items/${itemId}`);
         return response.data;
     },
 

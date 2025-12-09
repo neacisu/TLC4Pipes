@@ -30,16 +30,20 @@ router = APIRouter()
 async def list_all_orders(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: Optional[str] = Query(
+        None,
+        description="Comma-separated statuses to include (e.g. draft,calculated,cancelled)",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """
     List all orders with pagination.
     
-    Status values: draft, processing, calculated, completed
+    Status values: draft, processing, calculated, completed, cancelled
     """
-    orders = await list_orders(db, skip, limit, status)
-    logger.debug("orders.list", extra={"skip": skip, "limit": limit, "status": status})
+    statuses = [s.strip() for s in status.split(",")] if status else None
+    orders = await list_orders(db, skip, limit, statuses)
+    logger.debug("orders.list", extra={"skip": skip, "limit": limit, "statuses": statuses})
     return {"orders": orders, "count": len(orders)}
 
 
@@ -74,7 +78,11 @@ async def create_new_order(
     errors = []
     for item in order.items:
         result, error = await add_order_item(
-            db, new_order.id, item.pipe_id, item.quantity
+            db,
+            new_order.id,
+            item.pipe_id,
+            item.quantity,
+            float(item.total_meters) if item.total_meters is not None else None,
         )
         if error:
             errors.append(error)
@@ -102,7 +110,13 @@ async def add_item_to_order(
     """
     Add a pipe item to an existing order.
     """
-    result, error = await add_order_item(db, order_id, item.pipe_id, item.quantity)
+    result, error = await add_order_item(
+        db,
+        order_id,
+        item.pipe_id,
+        item.quantity,
+        float(item.total_meters) if item.total_meters is not None else None,
+    )
     
     if error:
         logger.warning("orders.add_item.failed", extra={"order_id": order_id, "pipe_id": item.pipe_id, "error": error})
@@ -118,6 +132,27 @@ async def add_item_to_order(
             "line_weight_kg": float(result.line_weight_kg) if result.line_weight_kg else 0
         }
     }
+
+
+@router.delete("/{order_id}/items/{item_id}")
+async def delete_item_from_order(
+    order_id: int,
+    item_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Delete a specific item from an order.
+    """
+    from app.services.order_service import delete_order_item
+    
+    deleted = await delete_order_item(db, order_id, item_id)
+    
+    if not deleted:
+        logger.warning("orders.delete_item.not_found", extra={"order_id": order_id, "item_id": item_id})
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    logger.info("orders.delete_item.success", extra={"order_id": order_id, "item_id": item_id})
+    return {"message": "Item deleted successfully", "item_id": item_id}
 
 
 @router.patch("/{order_id}/status")

@@ -11,13 +11,21 @@ from app.core.algorithms.bin_packing import (
 )
 
 
+# Standard truck config for tests - includes spatial dimensions
+STANDARD_TRUCK_CONFIG = {
+    "max_payload_kg": 24000,
+    "internal_height_mm": 2700,
+    "internal_width_mm": 2480,
+    "pipe_length_m": 12.0
+}
+
+
 class TestFirstFitDecreasing:
     """Tests for FFD algorithm."""
     
     def test_empty_bundles(self):
         """Empty bundles returns empty result."""
-        truck_config = {"max_payload_kg": 24000}
-        result = first_fit_decreasing([], truck_config, pipe_length_m=12.0)
+        result = first_fit_decreasing([], STANDARD_TRUCK_CONFIG, pipe_length_m=12.0)
         
         assert result.total_trucks_needed == 0
         assert result.total_weight_kg == 0
@@ -31,8 +39,7 @@ class TestFirstFitDecreasing:
             pipe_data={"code": "TPE110/PN6", "dn_mm": 110, "weight_per_meter": 1.42}
         )
         
-        truck_config = {"max_payload_kg": 24000}
-        result = first_fit_decreasing([bundle], truck_config, pipe_length_m=12.0)
+        result = first_fit_decreasing([bundle], STANDARD_TRUCK_CONFIG, pipe_length_m=12.0)
         
         assert result.total_trucks_needed == 1
         assert result.total_weight_kg == pytest.approx(1.42 * 12, 0.1)
@@ -46,28 +53,26 @@ class TestFirstFitDecreasing:
             for i in range(10)
         ]
         
-        truck_config = {"max_payload_kg": 24000}
-        result = first_fit_decreasing(bundles, truck_config, pipe_length_m=12.0)
+        result = first_fit_decreasing(bundles, STANDARD_TRUCK_CONFIG, pipe_length_m=12.0)
         
         assert result.total_trucks_needed == 1
         expected_weight = 10 * 1.42 * 12
         assert result.total_weight_kg == pytest.approx(expected_weight, 0.1)
     
     def test_heavy_bundles_multiple_trucks(self):
-        """Heavy bundles require multiple trucks."""
+        """Heavy bundles require multiple trucks (due to weight or spatial constraints)."""
         from app.core.algorithms.nesting import NestedPipe
         
         # Create bundles that exceed single truck capacity
         # TPE800/PN16: 168.7 kg/m * 12m = 2024 kg per pipe
-        # Need ~12 to exceed 24000 kg
         bundles = [
             NestedPipe(pipe_data={"code": f"TPE800/PN16_{i}", "dn_mm": 800, "weight_per_meter": 168.7})
             for i in range(15)
         ]
         
-        truck_config = {"max_payload_kg": 24000}
-        result = first_fit_decreasing(bundles, truck_config, pipe_length_m=12.0)
+        result = first_fit_decreasing(bundles, STANDARD_TRUCK_CONFIG, pipe_length_m=12.0)
         
+        # Should need multiple trucks due to weight AND/OR spatial constraints
         assert result.total_trucks_needed >= 2
         total_expected = 15 * 168.7 * 12
         assert result.total_weight_kg == pytest.approx(total_expected, 10)
@@ -82,8 +87,7 @@ class TestFirstFitDecreasing:
             NestedPipe(pipe_data={"code": "MEDIUM", "dn_mm": 315, "weight_per_meter": 11.71}),
         ]
         
-        truck_config = {"max_payload_kg": 24000}
-        result = first_fit_decreasing(bundles, truck_config, pipe_length_m=12.0)
+        result = first_fit_decreasing(bundles, STANDARD_TRUCK_CONFIG, pipe_length_m=12.0)
         
         # All should fit in one truck
         assert result.total_trucks_needed == 1
@@ -99,26 +103,65 @@ class TestTruckLoad:
     
     def test_empty_truck(self):
         """Empty truck has zero weight and utilization."""
-        truck = TruckLoad(truck_number=1, max_payload_kg=24000)
+        truck_config = {
+            "max_payload_kg": 24000,
+            "internal_height_mm": 2700,
+            "internal_width_mm": 2480,
+            "pipe_length_m": 12.0
+        }
+        truck = TruckLoad(truck_number=1, truck_config=truck_config)
         
         assert truck.total_weight_kg == 0
-        assert truck.utilization_percent == 0
+        assert truck.weight_utilization_pct == 0
         assert truck.remaining_capacity_kg == 24000
     
     def test_add_bundle(self):
         """Adding bundle updates weight correctly."""
         from app.core.algorithms.nesting import NestedPipe
         
-        truck = TruckLoad(truck_number=1, max_payload_kg=24000)
+        truck_config = {
+            "max_payload_kg": 24000,
+            "internal_height_mm": 2700,
+            "internal_width_mm": 2480,
+            "pipe_length_m": 12.0
+        }
+        truck = TruckLoad(truck_number=1, truck_config=truck_config)
         bundle = NestedPipe(
-            pipe_data={"code": "TPE400", "weight_per_meter": 18.8}
+            pipe_data={"code": "TPE400", "dn_mm": 400, "weight_per_meter": 18.8}
         )
         
-        can_fit = truck.can_fit(bundle, 12.0)
+        can_fit = truck.can_fit(bundle)
         assert can_fit is True
         
-        truck.add_bundle(bundle, 12.0)
+        truck.add_bundle(bundle)
         
         expected_weight = 18.8 * 12
         assert truck.total_weight_kg == pytest.approx(expected_weight, 0.1)
         assert truck.remaining_capacity_kg == pytest.approx(24000 - expected_weight, 0.1)
+    
+    def test_spatial_constraint_limits_bundles(self):
+        """Large bundles should be limited by spatial constraints, not just weight."""
+        from app.core.algorithms.nesting import NestedPipe
+        
+        truck_config = {
+            "max_payload_kg": 24000,
+            "internal_height_mm": 2700,
+            "internal_width_mm": 2480,
+            "pipe_length_m": 12.0
+        }
+        truck = TruckLoad(truck_number=1, truck_config=truck_config)
+        
+        # Add DN800 pipes - 3 per row in 2480mm width (800*3=2400)
+        # Height allows ~3 rows (2700 / 800 * 0.866 ≈ 3.9 rows)
+        # So max ~9 pipes before height exceeded
+        for i in range(15):
+            bundle = NestedPipe(
+                pipe_data={"code": f"TPE800/PN6_{i}", "dn_mm": 800, "weight_per_meter": 75.19}
+            )
+            result = truck.add_bundle(bundle)
+            if not result:
+                # Should stop before weight limit due to spatial constraints
+                assert truck.remaining_capacity_kg > 0  # Still has weight capacity
+                assert i < 15  # But couldn't fit spatially
+                break
+

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://tlc4pipe:tlc4pipe@localhost:5432/tlc4pipe"
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:80"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:80,http://localhost:8811"
     
     # Pipe Loading Configuration
     DEFAULT_PIPE_LENGTH_M: float = 12.0

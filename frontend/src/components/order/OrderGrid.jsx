@@ -11,7 +11,7 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
     // Form state for new row
     const [selectedDn, setSelectedDn] = useState("");
     const [selectedPn, setSelectedPn] = useState("");
-    const [quantity, setQuantity] = useState("1");
+    const [totalMeters, setTotalMeters] = useState("1");
     const [loadingPipes, setLoadingPipes] = useState(false);
 
     // Load pipe catalog catalog
@@ -39,7 +39,7 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
         .filter((v, i, a) => a.indexOf(v) === i); // unique
 
     const handleAddStart = () => {
-        if (!selectedDn || !selectedPn || !quantity) return;
+        if (!selectedDn || !selectedPn || !totalMeters) return;
 
         // Find full pipe object
         const pipe = availablePipes.find(p => p.dn_mm === parseInt(selectedDn) && p.pn_class === selectedPn);
@@ -50,11 +50,11 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
             code: pipe.code,
             dn: pipe.dn_mm,
             pn: pipe.pn_class,
-            quantity: parseInt(quantity)
+            meters: parseFloat(totalMeters)
         });
 
         // Reset simple fields
-        setQuantity("1");
+        setTotalMeters("1");
     };
 
     return (
@@ -90,12 +90,13 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
                 </div>
 
                 <div className="space-y-2">
-                    <span className="text-sm font-medium">Quantity</span>
+                    <span className="text-sm font-medium">Total meters</span>
                     <Input
                         type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={e => setQuantity(e.target.value)}
+                        min="0.01"
+                        step="0.01"
+                        value={totalMeters}
+                        onChange={e => setTotalMeters(e.target.value)}
                     />
                 </div>
 
@@ -113,14 +114,16 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
                             <TableHead>Pipe Code</TableHead>
                             <TableHead>Diameter (DN)</TableHead>
                             <TableHead>Class (PN)</TableHead>
-                            <TableHead>Quantity</TableHead>
+                            <TableHead>Cant. Com. (m)</TableHead>
+                            <TableHead>Total (m)</TableHead>
+                            <TableHead>Nr. Țevi</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {items.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                     No items added. Add pipes manually or import CSV.
                                 </TableCell>
                             </TableRow>
@@ -130,7 +133,9 @@ export default function OrderGrid({ items, onRemove, onAdd }) {
                                     <TableCell className="font-medium">{item.code}</TableCell>
                                     <TableCell>{item.dn} mm</TableCell>
                                     <TableCell>{item.pn}</TableCell>
-                                    <TableCell>{item.quantity}</TableCell>
+                                    <TableCell>{item.orderedMeters?.toFixed(2) ?? '-'}</TableCell>
+                                    <TableCell>{item.meters?.toFixed(2) ?? '-'}</TableCell>
+                                    <TableCell>{item.pipeCount ?? item.quantity}</TableCell>
                                     <TableCell>
                                         <Button variant="ghost" size="icon" onClick={() => onRemove(idx)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />

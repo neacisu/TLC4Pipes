@@ -34,9 +34,18 @@ export default function DashboardPage() {
 
     const fetchOrders = async () => {
         try {
-            const data = await orderService.listOrders();
-            // Sort by ID desc (newest first)
-            const sorted = Array.isArray(data) ? data.sort((a, b) => b.id - a.id) : [];
+            const { orders: fetched = [] } = await orderService.listOrders({
+                status: "draft,processing,calculated,cancelled",
+            });
+            // Sort by creation date desc (fallback to id desc)
+            const sorted = [...fetched].sort((a, b) => {
+                const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+                if (aTime === bTime) {
+                    return (b.id || 0) - (a.id || 0);
+                }
+                return bTime - aTime;
+            });
             setOrders(sorted);
         } catch (error) {
             console.error("Failed to fetch orders:", error);
@@ -67,7 +76,14 @@ export default function DashboardPage() {
             completed: "default", // we can customize colors later
             cancelled: "destructive"
         };
-        return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+        const labels = {
+            draft: "Draft",
+            processing: "Procesare",
+            calculated: "Procesat",
+            completed: "Finalizat",
+            cancelled: "Anulat",
+        };
+        return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>;
     };
 
     return (
@@ -135,7 +151,7 @@ export default function DashboardPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>
+                                                    <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}/edit`)}>
                                                         <FileText className="mr-2 h-4 w-4" /> View / Edit
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => navigate(`/results?orderId=${order.id}`)} disabled={order.status === 'draft'}>
