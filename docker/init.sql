@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS loading_plans (
     total_weight_kg DECIMAL(12,2),
     volume_utilization DECIMAL(5,2),
     plan_data JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
